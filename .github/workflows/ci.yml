@@ -1,0 +1,87 @@
+name: Train Build Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "MLProject/**"
+      - ".github/workflows/ci.yml"
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+
+    env:
+      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.DAGSHUB_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.DAGSHUB_TOKEN }}
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/student-learning-classifier:latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12.7
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12.7"
+
+      - name: Check environment
+        run: |
+          python --version
+          python -m pip --version
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r MLProject/requirements.txt
+
+      - name: Set MLflow Tracking URI
+        run: echo "MLFLOW_TRACKING_URI=${{ secrets.MLFLOW_TRACKING_URI }}" >> $GITHUB_ENV
+
+      - name: Run MLflow project
+        run: >-
+          mlflow run MLProject --env-manager=local
+          -P data_path=namadataset_preprocessing/student_cleaned.csv
+
+      - name: Get latest MLflow run_id
+        id: get_run_id
+        run: |
+          RUN_ID=$(python -c "
+          import mlflow
+          client = mlflow.MlflowClient()
+          experiment = client.get_experiment_by_name('student-learning-classifier')
+          runs = client.search_runs(experiment.experiment_id, order_by=['start_time DESC'], max_results=1)
+          print(runs[0].info.run_id)
+          ")
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+
+      - name: Verify model artifacts
+        run: |
+          test -f MLProject/artifacts/metric_info.json
+          test -f MLProject/artifacts/model.keras
+          test -f MLProject/artifacts/mlflow_model/MLmodel
+          python -m json.tool MLProject/artifacts/metric_info.json
+
+      - name: Upload model artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-artifacts
+          path: MLProject/artifacts/
+          if-no-files-found: error
+
+      - name: Build Docker model
+        run: >-
+          mlflow models build-docker
+          -m MLProject/artifacts/mlflow_model
+          -n "$IMAGE_NAME"
+          --env-manager=local
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push Docker Image
+        run: docker push "$IMAGE_NAME"
