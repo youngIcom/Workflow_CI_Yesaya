@@ -113,7 +113,7 @@ def train(args: argparse.Namespace) -> dict[str, float]:
     X_test_scaled = scaler.transform(X_test)
 
     configure_mlflow(args.experiment_name)
-    mlflow.keras.autolog(log_models=False)
+    mlflow.keras.autolog(log_models=True)
 
     with mlflow.start_run(run_name=args.run_name):
         mlflow.log_params(

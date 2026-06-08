@@ -5,13 +5,13 @@ Docker image dibangun dan dipush otomatis oleh workflow GitHub Actions setelah p
 Format image:
 
 ```text
-<DOCKERHUB_USERNAME>/student-learning-classifier:latest
+youngicom/student-learning-classifier:latest
 ```
 
 Tautan Docker Hub:
 
 ```text
-https://hub.docker.com/r/<DOCKERHUB_USERNAME>/student-learning-classifier
+https://hub.docker.com/r/youngicom/student-learning-classifier
 ```
 
 Username Docker Hub diambil dari secret GitHub Actions `DOCKERHUB_USERNAME`, sedangkan token login diambil dari `DOCKERHUB_TOKEN`.
