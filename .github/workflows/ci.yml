@@ -42,6 +42,7 @@ jobs:
       - name: Run MLflow project
         run: >-
           mlflow run MLProject --env-manager=local
+          --experiment-name="student-learning-classifier"
           -P data_path=namadataset_preprocessing/student_cleaned.csv
 
       - name: Get latest MLflow run_id
